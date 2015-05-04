@@ -189,8 +189,8 @@ class Heroku::Command::Kafka < Heroku::Command::Base
 
   def get_wait_status(attachment)
     data = JSON.parse(attachment, :symbolize_names => true)
-    zk = URI.parse(data[:zk])
-    kafka = URI.parse(data[:kafka])
+    zk = URI.parse("zookeeper://#{data[:zk]}")
+    kafka = URI.parse("kafka://#{data[:kafka]}")
     if zk_ready? zk
       {waiting?: false, message: 'ready!' }
     else
