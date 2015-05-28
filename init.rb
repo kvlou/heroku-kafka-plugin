@@ -29,7 +29,6 @@ module Heroku::Helpers::Kafka
 
 end
 
-
 class Heroku::Command::Produce < Heroku::Command::Base
   include Heroku::Helpers::Kafka
 
@@ -181,16 +180,15 @@ class Heroku::Command::Kafka < Heroku::Command::Base
     if args.length != 1
       error "Kafka name required"
     end
-    name, url = attachment(args)
-    wait_for(url, name, 3)
+    name, urls = attachment(args)
+    wait_for(urls, name, 3)
   end
 
   private
 
   def get_wait_status(attachment)
     data = JSON.parse(attachment, :symbolize_names => true)
-    zk = URI.parse("zookeeper://#{data[:zk]}")
-    kafka = URI.parse("kafka://#{data[:kafka]}")
+    zk = data[:zookeeper]
     if zk_ready? zk
       {waiting?: false, message: 'ready!' }
     else
@@ -198,11 +196,13 @@ class Heroku::Command::Kafka < Heroku::Command::Base
     end
   end
 
-  def zk_ready?(url)
-    r = Timeout::timeout(2) {
-      z = Zookeeper.new("#{url.host}:#{url.port}")
-      r = z.stat(path: '/')
-      r[:stat].exists?
+  def zk_ready?(addresses)
+    r = Timeout::timeout(10) {
+      res = addresses.map do |addr|
+        z = Zookeeper.new(addr)
+        r = z.stat(path: '/')
+        r[:stat].exists?
+      end.all? {|r| r == true}
     }
   rescue
     false
