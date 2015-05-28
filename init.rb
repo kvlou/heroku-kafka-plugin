@@ -85,8 +85,8 @@ class Heroku::Command::Topics < Heroku::Command::Base
     if args.length != 1
       error "Kafka name required"
     end
-    name, url = attachment(args)
-    get_topics(url, name)
+    name, urls = attachment(args)
+    get_topics(urls, name)
     display
   end
 
@@ -98,11 +98,11 @@ class Heroku::Command::Topics < Heroku::Command::Base
     if args.length != 2
       error "Kafka name and topic required"
     end
-    name, url = attachment(args)
-    create_topic(url, args.last)
+    name, urls = attachment(args)
+    create_topic(urls, args.last)
     display("Creating topic #{args.last}..")
     display
-    get_topics(url, name)
+    get_topics(urls, name)
   end
 
   # topics:create [KAFKA] [TOPIC]
@@ -113,8 +113,8 @@ class Heroku::Command::Topics < Heroku::Command::Base
     if args.length != 2
       error "Kafka name and topic required"
     end
-    name, url = attachment(args)
-    delete_topic(url, args.last)
+    name, urls = attachment(args)
+    delete_topic(urls, args.last)
     display("Deleting topic #{args.last}..")
     display
     get_topics(url, name)
@@ -122,21 +122,20 @@ class Heroku::Command::Topics < Heroku::Command::Base
 
   private
 
-  def create_topic(url, topic)
-    data = JSON.parse(url, :symbolize_names => true)
-    zk = URI.parse(data[:zk])
-    z = Zookeeper.new("#{zk.host}:#{zk.port}")
+  def create_topic(urls, topic)
+    data = JSON.parse(urls, symbolize_names: true)
+    addresses = data[:zookeeper]
+    z = Zookeeper.new(addresses.sample)
     # register the topic first
     z.create(path: "/config/topics/#{topic}", data: topic_config.to_json)
     z.create(path: "/brokers/topics/#{topic}", data: broker_topic_registration.to_json)
   end
 
-  def delete_topic(url, topic)
-    data = JSON.parse(url, :symbolize_names => true)
-    zk = URI.parse(data[:zk])
-    z = Zookeeper.new("#{zk.host}:#{zk.port}")
+  def delete_topic(urls, topic)
+    data = JSON.parse(urls, symbolize_names: true)
+    addresses = data[:zookeeper]
+    z = Zookeeper.new(addresses.sample)
     z.delete(path: "/config/topics/#{topic}")
-    # z.create(path: "/admin/delete_topics/#{topic}")
   end
 
 
@@ -148,10 +147,10 @@ class Heroku::Command::Topics < Heroku::Command::Base
     { version: 1, partitions: {'0' => [1]}}
   end
 
-  def get_topics(url, name)
-    data = JSON.parse(url, :symbolize_names => true)
-    zk = URI.parse(data[:zk])
-    z = Zookeeper.new("#{zk.host}:#{zk.port}")
+  def get_topics(urls, name)
+    data = JSON.parse(urls, symbolize_names: true)
+    addresses = data[:zookeeper]
+    z = Zookeeper.new(addresses.sample)
     r = z.get_children(path: '/config/topics')
     styled_header("Topic for Kafka cluster #{name}")
     if r[:children].length == 0
